@@ -4,10 +4,8 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import org.bson.Document;
 import org.springframework.stereotype.Service;
-
 import java.util.ArrayList;
 import java.util.List;
-
 import static com.mongodb.client.model.Filters.eq;
 import static com.mongodb.client.model.Sorts.ascending;
 import static com.mongodb.client.model.Sorts.orderBy;
@@ -42,10 +40,11 @@ public class StarsCatalogue {
         }
     }
 
-    public List<Object[]> getStarsToExplore(double latitude, double longitude) {
+    public StarsExplore getStarsToExplore(double latitude, double longitude) {
 //        calculateNewMag();
         List<Object[]> resultStars = new ArrayList<>();
         Document centralStar = findNearestStarByCoordinates(latitude, longitude);
+        Integer centralStarId = Integer.parseInt(centralStar.getString("_id"));
         if (centralStar != null && centralStar.containsKey("location") && centralStar.get("location") instanceof Document) {
             Document location = (Document) centralStar.get("location");
             if (location.containsKey("coordinates") && location.get("coordinates") instanceof List) {
@@ -62,37 +61,33 @@ public class StarsCatalogue {
                                 Double deltaRa = (Double) starCoordinates.get(0) - centralStarRa;
                                 Double deltaDec = (Double) starCoordinates.get(1) - centralStarDec;
                                 Double newMag = currStar.getDouble("new_mag");
-                                resultStars.add(new Object[]{new Double[]{deltaRa, deltaDec}, newMag});
+                                String id = currStar.getString("_id");
+                                Integer idInteger = Integer.parseInt(id);
+                                resultStars.add(new Object[]{new Double[]{deltaRa, deltaDec}, newMag, idInteger}); //,
+//                                        new Double[]{(Double) starCoordinates.get(0), (Double) starCoordinates.get(1)}, mag});
                             }
                         }
                     }
                 }
             }
         }
-        return resultStars;
+        return new StarsExplore(resultStars, centralStarId);
     }
 
-//    public List<Object[]> getStarsToExplore(double latitude, double longitude) {
-//        List<Object[]> resultStars = new ArrayList<>();
-//        Document centralStar = findNearestStarByCoordinates(latitude, longitude);
-////        List<Double> centralStarCoordinates = (List<Double>) centralStar.get("location.coordinates");
-//        List<Double> centralStarCoordinates = (List<Double>) centralStar.get("location");
-//
-//        if (centralStarCoordinates != null) { // Add null check here
-//            double centralStarRa = centralStarCoordinates.get(0);
-//            double centralStarDec = centralStarCoordinates.get(1);
-//
-//            for (Document currStar : collection.find()) {
-//                List<Double> currStarCoordinates = (List<Double>) currStar.get("location.coordinates");
-//                if (currStarCoordinates != null && currStarCoordinates.size() == 2) { // Add null and size check
-//                    double deltaRa = currStarCoordinates.get(0) - centralStarRa;
-//                    double deltaDec = currStarCoordinates.get(1) - centralStarDec;
-//                    double newMag = currStar.getDouble("new_mag");
-//                    resultStars.add(new Object[]{new double[]{deltaRa, deltaDec}, newMag});
-//                }
-//            }
-//        }
-//
-//        return resultStars;
-//    }
+    // List<Double>
+    public StarData getStarInfo(String id) {
+        Document starDocument = collection.find(eq("_id", id)).first();
+
+        if (starDocument != null) {
+            double mag = starDocument.getDouble("mag");
+
+            Document location = starDocument.get("location", Document.class);
+            List<Double> coordinates = location.getList("coordinates", Double.class);
+            double ra = coordinates.get(0);
+            double dec = coordinates.get(1);
+            return new StarData(mag, ra, dec);
+        } else {
+            return null;
+        }
+    }
 }
